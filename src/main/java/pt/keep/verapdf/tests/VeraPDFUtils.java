@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -37,7 +40,7 @@ import org.verapdf.processor.reports.BatchSummary;
  * Hello world!
  *
  */
-public class VeraPDFTest {
+public class VeraPDFUtils {
 
   private BatchProcessor createProcessor() {
     VeraGreenfieldFoundryProvider.initialise();
@@ -73,40 +76,37 @@ public class VeraPDFTest {
 
   }
 
-  public void testMultiThreaded(final List<File> files, int threads, int times) throws IOException, VeraPDFException {
+  public int testMultiThreaded(final List<Path> files, int threads)
+    throws IOException, VeraPDFException, InterruptedException {
     final BatchProcessor processor = createProcessor();
-    File report = File.createTempFile("veraPDF", ".xml");
-    final BatchProcessingHandler handler = createHandler(report);
+
+    Path report = Files.createTempFile("veraPDF", ".xml");
+    ;
+    final BatchProcessingHandler handler = createHandler(report.toFile());
 
     // aggregate results
     final List<BatchSummary> summaries = new ArrayList<>();
-    final Map<Integer, Exception> exceptions = new HashMap<>();
+    final Map<Path, Exception> exceptions = new HashMap<>();
 
-    System.out.println("Report output at " + report.getAbsolutePath());
+    System.out.println("Report output at " + report);
 
     ExecutorService pool = Executors.newFixedThreadPool(threads);
 
-    for (int i = 0; i < times; i++) {
-      final int index = i + 1;
-
+    for (final Path file : files) {
       pool.execute(() -> {
-        System.out.println("Start #" + index);
+        System.out.println("Start #" + file);
         try {
-          BatchSummary summary = processor.process(files, handler);
+          BatchSummary summary = processor.process(Arrays.asList(file.toFile()), handler);
           summaries.add(summary);
         } catch (VeraPDFException | RuntimeException e) {
-          exceptions.put(index, e);
+          exceptions.put(file, e);
         }
-        System.out.println("End #" + index);
+        System.out.println("End #" + file);
       });
     }
 
     pool.shutdown();
-    try {
-      pool.awaitTermination(1, TimeUnit.HOURS);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    pool.awaitTermination(1, TimeUnit.HOURS);
 
     System.out.println("Terminated parallel execution");
     System.out.println("Failed parsing: "
@@ -122,26 +122,24 @@ public class VeraPDFTest {
       // entry.getValue().printStackTrace();
     });
 
+    return exceptions.size();
+
   }
 
   public static void main(String[] args) {
     List<String> argsList = Arrays.asList(args);
-    if (argsList.size() < 3) {
-      System.err.println("Syntax: VeraPDFTest NUMBER_OF_THREADS NUMBER_OF_TIMES FILES...");
+    if (argsList.size() < 2) {
+      System.err.println("Syntax: VeraPDFTest NUMBER_OF_THREADS FILES...");
       System.exit(1);
     }
 
     int threads = Integer.parseInt(argsList.get(0));
-    int times = Integer.parseInt(argsList.get(1));
 
-    List<File> files = argsList.subList(2, argsList.size()).stream().map(filename -> new File(filename))
-      .collect(Collectors.toList());
+    List<Path> files = argsList.subList(1, argsList.size()).stream().map(Paths::get).collect(Collectors.toList());
 
     try {
-      new VeraPDFTest().testMultiThreaded(files, threads, times);
-    } catch (IOException e) {
-      e.printStackTrace();
-    } catch (VeraPDFException e) {
+      new VeraPDFUtils().testMultiThreaded(files, threads);
+    } catch (IOException | VeraPDFException | InterruptedException e) {
       e.printStackTrace();
     }
   }
