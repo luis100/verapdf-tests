@@ -81,7 +81,7 @@ public class VeraPDFUtils {
     final BatchProcessor processor = createProcessor();
 
     Path report = Files.createTempFile("veraPDF", ".xml");
-    ;
+    
     final BatchProcessingHandler handler = createHandler(report.toFile());
 
     // aggregate results
