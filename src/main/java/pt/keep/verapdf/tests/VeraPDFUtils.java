@@ -81,7 +81,7 @@ public class VeraPDFUtils {
     final BatchProcessor processor = createProcessor();
 
     Path report = Files.createTempFile("veraPDF", ".xml");
-    
+
     final BatchProcessingHandler handler = createHandler(report.toFile());
 
     // aggregate results
@@ -107,20 +107,25 @@ public class VeraPDFUtils {
 
     pool.shutdown();
     pool.awaitTermination(1, TimeUnit.HOURS);
-
-    System.out.println("Terminated parallel execution");
-    System.out.println("Failed parsing: "
-      + summaries.stream().map(s -> s.getFailedParsingJobs()).distinct().collect(Collectors.toList()));
-    System.out.println("Compliant: " + summaries.stream().map(s -> s.getValidationSummary().getCompliantPdfaCount())
-      .distinct().collect(Collectors.toList()));
-    System.out.println("NonCompliant: " + summaries.stream()
-      .map(s -> s.getValidationSummary().getNonCompliantPdfaCount()).distinct().collect(Collectors.toList()));
-
-    exceptions.entrySet().stream().forEach(entry -> {
-      System.err.println("Execution #" + entry.getKey() + " exception: [" + entry.getValue().getClass().getSimpleName()
-        + "] " + entry.getValue().getMessage());
-      // entry.getValue().printStackTrace();
-    });
+    
+    System.out.println("TERMINATED PARALLEL EXECUTION");
+    
+    exceptions.entrySet().stream().forEach(entry -> System.err.println("Execution #" + entry.getKey() + " exception: ["
+      + entry.getValue().getClass().getSimpleName() + "] " + entry.getValue().getMessage()));
+    
+    System.out.println("");
+    System.out.println("SUMMARY");
+    
+    
+    System.out.println("Files: " + files.size());
+    System.out.println("Exceptions: " + exceptions.size());
+    System.out.println("Failed parsing: " + summaries.stream().mapToInt(BatchSummary::getFailedParsingJobs).sum());
+    System.out.println(
+      "Compliant: " + summaries.stream().mapToInt(s -> s.getValidationSummary().getCompliantPdfaCount()).sum());
+    System.out.println(
+      "NonCompliant: " + summaries.stream().mapToInt(s -> s.getValidationSummary().getNonCompliantPdfaCount()).sum());
+    System.out.println("");
+    
 
     return exceptions.size();
 
